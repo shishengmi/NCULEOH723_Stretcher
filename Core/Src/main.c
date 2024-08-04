@@ -29,7 +29,6 @@
 #include "circular_buffer.h"
 #include "Filtering.h"
 #include "ESP8266.h"
-#include "ATC.h"
 
 
 /* USER CODE END Includes */
