@@ -5,7 +5,6 @@
  *                 该文件包含各种外设的初始化和配置代码，FreeRTOS任务和应用逻辑。
  */
 /* USER CODE END Header */
-
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
@@ -53,6 +52,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+
 /* USER CODE BEGIN PV */
 // 私有变量
 
@@ -88,7 +88,6 @@ extern arm_fir_instance_f32 ADS1292;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
-// 私有函数原型
 void SystemClock_Config(void);
 void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
@@ -106,33 +105,33 @@ body_condition_t body_Condition; // 定义身体状况结构体实例
 /* USER CODE END 0 */
 
 /**
-  * @brief  应用程序的入口点。
+  * @brief  The application entry point.
   * @retval int
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
   // 用户代码开始1
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
-  // MCU配置
 
-  /* 重置所有外设，初始化Flash接口和Systick。 */
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
 
   /* USER CODE BEGIN Init */
   // 用户初始化代码
   /* USER CODE END Init */
 
-  /* 配置系统时钟 */
+  /* Configure the system clock */
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
   // 用户系统初始化代码
   /* USER CODE END SysInit */
 
-  /* 初始化所有配置的外设 */
+  /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART3_UART_Init();
@@ -159,15 +158,15 @@ int main(void)
 
   /* USER CODE END 2 */
 
-  /* 调用freertos对象的初始化函数（在cmsis_os2.c中） */
+  /* Call init function for freertos objects (in cmsis_os2.c) */
   MX_FREERTOS_Init();
 
-  /* 启动调度器 */
+  /* Start scheduler */
   osKernelStart();
 
-  /* 这里不应该到达，因为控制权现在由调度器接管 */
+  /* We should never get here as control is now taken by the scheduler */
 
-  /* 无限循环 */
+  /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
@@ -180,25 +179,26 @@ int main(void)
 }
 
 /**
-  * @brief 系统时钟配置
-  * @retval 无
+  * @brief System Clock Configuration
+  * @retval None
   */
 void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-  /** 使能电源配置更新
+  /** Supply configuration update enable
   */
   HAL_PWREx_ConfigSupply(PWR_LDO_SUPPLY);
 
-  /** 配置主内部调节器输出电压
+  /** Configure the main internal regulator output voltage
   */
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE0);
 
   while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
 
-  /** 根据RCC_OscInitTypeDef结构体中的指定参数初始化RCC振荡器
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
   */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
@@ -218,7 +218,7 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
-  /** 初始化CPU, AHB和APB总线时钟
+  /** Initializes the CPU, AHB and APB buses clocks
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2
@@ -325,20 +325,20 @@ void Filtering_Task(void *pvParameters)
 /* USER CODE END 4 */
 
 /**
-  * @brief  非阻塞模式下的定时器中断回调
-  * @note   该函数在TIM1中断发生时调用，在HAL_TIM_IRQHandler()中调用。
-  *         它直接调用HAL_IncTick()以增加全局变量"uwTick"，该变量用作应用程序时间基准。
-  * @param  htim : TIM句柄
-  * @retval 无
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM1 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
   */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
   // 用户回调代码0
   /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM1)
-  {
-    HAL_IncTick(); // 增加全局时间基准
+  if (htim->Instance == TIM1) {
+    HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
   // 用户回调代码1
@@ -346,8 +346,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 }
 
 /**
-  * @brief  错误处理函数
-  * @retval 无
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
   */
 void Error_Handler(void)
 {
@@ -363,10 +363,11 @@ void Error_Handler(void)
 
 #ifdef  USE_FULL_ASSERT
 /**
-  * @brief  报告源文件名称和源行号发生的assert_param错误。
-  * @param  file: 指向源文件名称的指针
-  * @param  line: assert_param错误行号
-  * @retval 无
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
   */
 void assert_failed(uint8_t *file, uint32_t line)
 {
