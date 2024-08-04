@@ -56,7 +56,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     User/Src/ADS1292.c
     User/Src/circular_buffer.c
     User/Src/Filtering.c
-#    ATC-V2/ATC.c
+    User/Src/retarget.c
     # Add user sources here
 )
 

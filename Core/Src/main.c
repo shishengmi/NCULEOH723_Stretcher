@@ -19,7 +19,6 @@
 #include "Wifi.h"
 #include "LMT70.h"
 #include "Voice_broadcast.h"
-#include "Voice_task.h"
 #include "MAX30102.h"
 #include "blood.h"
 #include "FreeRTOS.h"
@@ -28,7 +27,6 @@
 #include "ADS1292.h"
 #include "circular_buffer.h"
 #include "Filtering.h"
-#include "ESP8266.h"
 
 
 /* USER CODE END Includes */
