@@ -27,6 +27,7 @@
 #include "ADS1292.h"
 #include "circular_buffer.h"
 #include "Filtering.h"
+#include "retarget.h"
 
 
 /* USER CODE END Includes */
@@ -137,6 +138,8 @@ int main(void)
   MX_ETH_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
+  RetargetInit(&huart3);
+  printf("卧槽你的妈妈");
   arm_fir_init_f32(&ADS1292, NumTaps, (float32_t *)BPF_5Hz_40Hz, firState2, blockSize);
 
 
