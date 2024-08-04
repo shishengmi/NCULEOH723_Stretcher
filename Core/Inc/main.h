@@ -68,6 +68,8 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
+#define Test_Pin GPIO_PIN_2
+#define Test_GPIO_Port GPIOF
 #define ADS1292_PW_Pin GPIO_PIN_5
 #define ADS1292_PW_GPIO_Port GPIOF
 #define ADS1292_CS_Pin GPIO_PIN_10
