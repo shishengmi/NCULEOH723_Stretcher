@@ -64,7 +64,6 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     User/Inc/
     ESP8266/
-    ATC-V2/
     Drivers/CMSIS/DSP/Include/
     # Add user defined include paths
 )

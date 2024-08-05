@@ -27,6 +27,7 @@
 #include "ADS1292.h"
 #include "circular_buffer.h"
 #include "Filtering.h"
+#include "retarget.h"
 
 
 /* USER CODE END Includes */
@@ -54,7 +55,7 @@ char answerString[128];
 uint8_t foundAnswer;
 
 
-SemaphoreHandle_t DR_Semaphore = NULL;
+SemaphoreHandle_t DR_Semaphore = NULL;//ADS1292的二值信号量，当ADS1292触发DR引脚的EXTI中断被释放
 CircularBuffer ECG_buffer;
 QueueHandle_t xQueueECGData;
 SemaphoreHandle_t wifiSemaphore;
@@ -137,16 +138,18 @@ int main(void)
   MX_ETH_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
+  HAL_NVIC_DisableIRQ(EXTI9_5_IRQn);//首先应该先失能EXTI中断
   arm_fir_init_f32(&ADS1292, NumTaps, (float32_t *)BPF_5Hz_40Hz, firState2, blockSize);
-
-
+  RetargetInit(&huart3);
+  DR_Semaphore = xSemaphoreCreateBinary();//创建二值信号量
   initBuffer(&ECG_buffer);
   xQueueECGData = xQueueCreate(256, sizeof(uint32_t));
 
-  xTaskCreate(Blood_Task,"Blood Task",512,NULL,3,&Blood_TaskHandle);
-  xTaskCreate(LMT70_Task,"LMT70_Task",512,NULL,3,&LMT70_TaskHandle);
+
+  // xTaskCreate(Blood_Task,"Blood Task",512,NULL,3,&Blood_TaskHandle);
+  // xTaskCreate(LMT70_Task,"LMT70_Task",512,NULL,3,&LMT70_TaskHandle);
   xTaskCreate(ADS1292_Task,"ADS1292 Task",1024,NULL,3,&ADS1292_TaskHandle);
-  xTaskCreate(Filtering_Task,"Filtering Task",512,NULL,3,&Filtering_TaskHandle);
+  // xTaskCreate(Filtering_Task,"Filtering Task",512,NULL,3,&Filtering_TaskHandle);
 
 
   /* USER CODE END 2 */
@@ -269,31 +272,50 @@ void LMT70_Task(void *pvParameters)
 
 void ADS1292_Task(void *pvParameters)
 {
-
   if(ADS1292_PowerOnInit() == 1)
   {
     HAL_GPIO_TogglePin(LED_GREEN_GPIO_Port,LED_GREEN_Pin);
   }
+  char TEST_Buffer[128];
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);//使能EXTI中断
   for (;;) {
 
-    while (HAL_GPIO_ReadPin(ADS1292_DR_GPIO_Port, ADS1292_DR_Pin) == 1) {
-      osDelay(2);
-    }
+    // 等待二值信号量
+    if (xSemaphoreTake(DR_Semaphore, portMAX_DELAY) == pdTRUE)
     {
-    ADS1292_Read_Data(read_data);
-    ch1_data = 0;
-    ch2_data = 0;
-    ch1_data |= (uint32_t) read_data[3] << 16;
-    ch1_data |= (uint32_t) read_data[4] << 8;
-    ch1_data |= (uint32_t) read_data[5] << 0;
-    ch2_data |= (uint32_t) read_data[6] << 16;
-    ch2_data |= (uint32_t) read_data[7] << 8;
-    ch2_data |= (uint32_t) read_data[8] << 0;
-    ECG_data_raw = (float32_t) (ch2_data ^ 0x800000);
-    if (xQueueSend(xQueueECGData, &ECG_data_raw, portMAX_DELAY) != pdPASS) {
-    }
+      // 成功获取到信号量后，执行相应操作
+      printf("Task1: Received the semaphore.\n");
+      ADS1292_Read_Data(read_data);
+      ch1_data = 0;
+      ch2_data = 0;
+      ch1_data |= (uint32_t) read_data[3] << 16;
+      ch1_data |= (uint32_t) read_data[4] << 8;
+      ch1_data |= (uint32_t) read_data[5] << 0;
+      ch2_data |= (uint32_t) read_data[6] << 16;
+      ch2_data |= (uint32_t) read_data[7] << 8;
+      ch2_data |= (uint32_t) read_data[8] << 0;
+      ECG_data_raw = (float32_t) (ch2_data ^ 0x800000);
+      arm_fir_f32(&ADS1292, &ECG_data_raw, &ECG_data_filtered, blockSize);
+      sprintf(TEST_Buffer,"A=%d,B=%d,C=%d\r\n",(int)ECG_data_raw,(int)ECG_data_filtered,(int)(body_Condition.body_temperature*10));
+      HAL_UART_Transmit(&huart1,(uint8_t*)TEST_Buffer,strlen(TEST_Buffer),1000);
+
+
+
+
+
+
+
+
+
+
+
+
+
+      // xQueueSend(xQueueECGData, &ECG_data_raw, portMAX_DELAY);//发送数据到消息队列中
+
     }
   }
+
 }
 
 void Filtering_Task(void *pvParameters)
@@ -311,6 +333,21 @@ void Filtering_Task(void *pvParameters)
 
     }
   }
+}
+
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  /* Prevent unused argument(s) compilation warning */
+  UNUSED(GPIO_Pin);
+  if(GPIO_Pin == ADS1292_DR_Pin)
+  {
+
+    //释放信号量
+    xSemaphoreGiveFromISR(DR_Semaphore,pdFALSE);
+  }
+
+
 }
 
 

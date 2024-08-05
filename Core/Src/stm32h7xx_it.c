@@ -235,7 +235,6 @@ void EXTI9_5_IRQHandler(void)
   HAL_GPIO_EXTI_IRQHandler(ADS1292_DR_Pin);
   /* USER CODE BEGIN EXTI9_5_IRQn 1 */
 
-
   /* USER CODE END EXTI9_5_IRQn 1 */
 }
 

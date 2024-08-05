@@ -10,6 +10,11 @@
 #include "task.h"
 #include "cmsis_os.h"
 
+#ifndef INC_FREERTOS_H
+#define
+#endif
+
+
 #define SPI_HANDLE hspi1 //若修改了spi外设需要修改spi句柄
 
 
@@ -25,7 +30,7 @@
 #define START_L     HAL_GPIO_WritePin(ADS1292_ST_GPIO_Port, ADS1292_ST_Pin, GPIO_PIN_RESET)
 #define START_H     HAL_GPIO_WritePin(ADS1292_ST_GPIO_Port, ADS1292_ST_Pin, GPIO_PIN_SET)
 #define CS_L      	HAL_GPIO_WritePin(ADS1292_CS_GPIO_Port, ADS1292_CS_Pin, GPIO_PIN_RESET)
-#define CS_H     		HAL_GPIO_WritePin(ADS1292_CS_GPIO_Port, ADS1292_CS_Pin, GPIO_PIN_SET)
+#define CS_H     	HAL_GPIO_WritePin(ADS1292_CS_GPIO_Port, ADS1292_CS_Pin, GPIO_PIN_SET)
 
 //-----------------------------------------------------------------
 // ADS1292命令定义
