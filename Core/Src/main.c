@@ -75,9 +75,6 @@ TaskHandle_t LMT70_TaskHandle;
 TaskHandle_t ADS1292_TaskHandle;
 TaskHandle_t Filtering_TaskHandle;
 
-Queue q;
-QueueDataType value;
-
 extern uint32_t blockSize;
 extern uint32_t numBlocks;
 extern float32_t firState2[Block_Size + NumTaps - 1];
@@ -104,27 +101,27 @@ void Filtering_Task(void *pvParameters);
 /* USER CODE BEGIN 0 */
 body_condition_t body_Condition;
 
-void Median_outlier_removal(Queue *queue,QueueDataType data,float Threshold)
-{
-  float s1 = 0;
-  float s2 = 0;
-  float temp_array[30] = {};
-  if(!Queue_IsFull(queue))
-  {
-    Queue_Enqueue(queue,data);
-  }
-  else if(Queue_IsFull(queue))
-  {
-    temp_array = Queue_ToArray(queue, 30);
-    calculateVariance();
-    //加入点后计算方差
-    //不超过阈值的逻辑
-    //超过阈值的逻辑
-
-
-  }
-
-}
+//void Median_outlier_removal(Queue *queue,QueueDataType data,float Threshold)
+//{
+//  float s1 = 0;
+//  float s2 = 0;
+//  float temp_array[30] = {};
+//  if(!Queue_IsFull(queue))
+//  {
+//    Queue_Enqueue(queue,data);
+//  }
+//  else if(Queue_IsFull(queue))
+//  {
+//    temp_array = Queue_ToArray(queue, 30);
+//    calculateVariance();
+//    //加入点后计算方差
+//    //不超过阈值的逻辑
+//    //超过阈值的逻辑
+//
+//
+//  }
+//
+//}
 
 
 
@@ -147,7 +144,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  Queue_Init(&q, 30);
+//  Queue_Init(&q, 30);
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -325,11 +322,11 @@ void ADS1292_Task(void *pvParameters)
       ch2_data |= (uint32_t) read_data[7] << 8;
       ch2_data |= (uint32_t) read_data[8] << 0;
       ECG_data_raw = (float32_t) (ch2_data ^ 0x800000);
-      Queue_Enqueue(&q, ECG_data_raw);
-      if(Queue_IsFull(&q))
-      {
-        printf("队列满\r\n");
-      }
+//      Queue_Enqueue(&q, ECG_data_raw);
+//      if(Queue_IsFull(&q))
+//      {
+//        printf("队列满\r\n");
+//      }
       arm_fir_f32(&ADS1292, &ECG_data_raw, &ECG_data_filtered, blockSize);
       sprintf(TEST_Buffer,"A=%d,B=%d,C=%d\r\n",(int)ECG_data_raw,(int)ECG_data_filtered,(int)(body_Condition.body_temperature*10));
       HAL_UART_Transmit(&huart1,(uint8_t*)TEST_Buffer,strlen(TEST_Buffer),1000);
