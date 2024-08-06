@@ -29,14 +29,14 @@
 #include "Filtering.h"
 #include "retarget.h"
 #include "queue.h"
-#include "myMath.h"
+#include "Abnormal_filtering.h"
 
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+#define MEDIAN_THRESHOLD 80000
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -94,6 +94,19 @@ void Blood_Task(void *pvParameters);
 void LMT70_Task(void *pvParameters);
 void ADS1292_Task(void *pvParameters);
 void Filtering_Task(void *pvParameters);
+
+void bubbleSort(float32_t arr[], int n) {
+  for (int i = 0; i < n - 1; i++) {
+    for (int j = 0; j < n - 1 - i; j++) {
+      if (arr[j] > arr[j + 1]) {
+        // 交换 arr[j] 和 arr[j + 1]
+        float32_t temp = arr[j];
+        arr[j] = arr[j + 1];
+        arr[j + 1] = temp;
+      }
+    }
+  }
+}
 
 /* USER CODE END PFP */
 
@@ -304,6 +317,10 @@ void ADS1292_Task(void *pvParameters)
     HAL_GPIO_TogglePin(LED_GREEN_GPIO_Port,LED_GREEN_Pin);
   }
   char TEST_Buffer[128];
+  float32_t ecg_process_buffer[10];
+  float32_t ecg_processed_buffer[10];
+  uint8_t ecg_process_index = 0;
+  float32_t mid = 0;
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);//使能EXTI中断
   for (;;) {
 
@@ -321,12 +338,34 @@ void ADS1292_Task(void *pvParameters)
       ch2_data |= (uint32_t) read_data[6] << 16;
       ch2_data |= (uint32_t) read_data[7] << 8;
       ch2_data |= (uint32_t) read_data[8] << 0;
-      ECG_data_raw = (float32_t) (ch2_data ^ 0x800000);
-//      Queue_Enqueue(&q, ECG_data_raw);
-//      if(Queue_IsFull(&q))
-//      {
-//        printf("队列满\r\n");
-//      }
+
+
+      ecg_process_buffer[ecg_process_index] = (float32_t) (ch2_data ^ 0x800000); //赋值到缓冲区中
+      ecg_process_index++;
+      if(ecg_process_index >= 9)
+      {
+        ecg_process_index =0;//重新计数以便下次接收
+        //循环遍历赋值
+        for(int i=0;i<10;i++)
+        {
+          ecg_processed_buffer[i] = ecg_process_buffer[i];//暂时用了一次
+        }
+        //对数组进行排序
+        bubbleSort(ecg_processed_buffer, 10);//冒泡排序最大的数字在末尾
+        mid = (ecg_processed_buffer[4]+ecg_processed_buffer[5])/2; //计算中值
+
+        for(int i=0;i<10;i++)//循环遍历数组中的元素，利用中值来舍弃异常点，
+        {
+          //这里直接对原来的数组进行处理哦，因为要保证波形
+          if(fabs(ecg_process_buffer[i]-mid) > MEDIAN_THRESHOLD)
+          {
+            ecg_process_buffer[i] = mid;
+          }
+          ecg_processed_buffer[i] = ecg_process_buffer[i];
+        }
+      }
+      ECG_data_raw = ecg_processed_buffer[ecg_process_index];
+
       arm_fir_f32(&ADS1292, &ECG_data_raw, &ECG_data_filtered, blockSize);
       sprintf(TEST_Buffer,"A=%d,B=%d,C=%d\r\n",(int)ECG_data_raw,(int)ECG_data_filtered,(int)(body_Condition.body_temperature*10));
       HAL_UART_Transmit(&huart1,(uint8_t*)TEST_Buffer,strlen(TEST_Buffer),1000);

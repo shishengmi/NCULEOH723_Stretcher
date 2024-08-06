@@ -57,8 +57,9 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     User/Src/circular_buffer.c
     User/Src/Filtering.c
     User/Src/retarget.c
-#    User/Src/queue.c
-#    User/Src/myMath.c
+    User/Src/Abnormal_filtering.c
+    User/Src/data_structure.c
+
     # Add user sources here
 )
 
