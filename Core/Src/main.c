@@ -16,22 +16,20 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-#include "Wifi.h"
+// #include "Wifi.h"
 #include "LMT70.h"
-#include "Voice_broadcast.h"
+// #include "Voice_broadcast.h"
 #include "MAX30102.h"
 #include "blood.h"
 #include "FreeRTOS.h"
-#include "semphr.h"
+// #include "semphr.h"
 #include "arm_math.h"
 #include "ADS1292.h"
-#include "circular_buffer.h"
+// #include "circular_buffer.h"
 #include "Filtering.h"
 #include "retarget.h"
-#include "queue.h"
-#include "Abnormal_filtering.h"
-
-
+// #include "queue.h"
+// #include "Abnormal_filtering.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -58,7 +56,7 @@ uint8_t foundAnswer;
 
 
 SemaphoreHandle_t DR_Semaphore = NULL;//ADS1292的二值信号量，当ADS1292触发DR引脚的EXTI中断被释放
-CircularBuffer ECG_buffer;
+// CircularBuffer ECG_buffer;
 QueueHandle_t xQueueECGData;
 SemaphoreHandle_t wifiSemaphore;
 uint8_t wifiUserBuffer[1024] = "";
@@ -113,31 +111,6 @@ void bubbleSort(float32_t arr[], int n) {
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 body_condition_t body_Condition;
-
-//void Median_outlier_removal(Queue *queue,QueueDataType data,float Threshold)
-//{
-//  float s1 = 0;
-//  float s2 = 0;
-//  float temp_array[30] = {};
-//  if(!Queue_IsFull(queue))
-//  {
-//    Queue_Enqueue(queue,data);
-//  }
-//  else if(Queue_IsFull(queue))
-//  {
-//    temp_array = Queue_ToArray(queue, 30);
-//    calculateVariance();
-//    //加入点后计算方差
-//    //不超过阈值的逻辑
-//    //超过阈值的逻辑
-//
-//
-//  }
-//
-//}
-
-
-
 /* USER CODE END 0 */
 
 /**
@@ -182,7 +155,7 @@ int main(void)
   arm_fir_init_f32(&ADS1292, NumTaps, (float32_t *)BPF_5Hz_40Hz, firState2, blockSize);
   RetargetInit(&huart3);
   DR_Semaphore = xSemaphoreCreateBinary();//创建二值信号量
-  initBuffer(&ECG_buffer);
+  // initBuffer(&ECG_buffer);
   xQueueECGData = xQueueCreate(256, sizeof(uint32_t));
 
 
@@ -369,19 +342,6 @@ void ADS1292_Task(void *pvParameters)
       arm_fir_f32(&ADS1292, &ECG_data_raw, &ECG_data_filtered, blockSize);
       sprintf(TEST_Buffer,"A=%d,B=%d,C=%d\r\n",(int)ECG_data_raw,(int)ECG_data_filtered,(int)(body_Condition.body_temperature*10));
       HAL_UART_Transmit(&huart1,(uint8_t*)TEST_Buffer,strlen(TEST_Buffer),1000);
-
-
-
-
-
-
-
-
-
-
-
-
-
       // xQueueSend(xQueueECGData, &ECG_data_raw, portMAX_DELAY);//发送数据到消息队列中
 
     }
