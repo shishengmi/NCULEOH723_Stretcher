@@ -3,12 +3,7 @@
 #include "spi.h"
 #include "stdio.h"
 
-u8 read_Index = 0;
-u8 read_data[9];
-u32 ch1_data;       //ADS1292通道1数据
-u32 ch2_data;       //ADS1292通道2数据
-float32_t ECG_data_raw;    // 滤波前
-float32_t ECG_data_filtered;  // 滤波后
+
 uint32_t  DMA_time = 0;
 
 
@@ -139,24 +134,6 @@ u8 ADS1292_ReadWriteByte_DMA(u8 data)
   return Rxdata; // 返回收到的数据
 }
 
-void DR_EXTI_callBack(void)
-{
-  //开始DMA接收，接收9次？这里是开启第一次的DMA接受
-  read_Index = 0;
-  read_data[read_Index]=ADS1292_ReadWriteByte_DMA(0xFF);
 
-}
-
-void DMA_TransmitCallBack(void)
-{
-  read_Index++;
-  if(read_Index < 9)
-  {
-    read_data[read_Index]=ADS1292_ReadWriteByte_DMA(0xFF);
-  }else{
-    read_Index = 0;
-  }
-  //释放一个信号量，进行滤波处理
-}
 
 

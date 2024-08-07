@@ -1,14 +1,4 @@
 #include "Filtering.h"
-
-uint32_t blockSize = Block_Size;
-uint32_t numBlocks = Samples_Number/Block_Size;
-float32_t firState2[Block_Size + NumTaps - 1];
-
-arm_fir_instance_f32 ADS1292;
-
-
-
-
 const float32_t BPF_5Hz_40Hz[NumTaps] = {
     3.523997657e-05f, 0.0002562592272f, 0.0005757701583f, 0.0008397826459f, 0.000908970891f,
     0.0007304374012f, 0.0003793779761f, 4.222582356e-05f, -6.521392788e-05f, 0.0001839015895f,
@@ -38,14 +28,4 @@ const float32_t BPF_5Hz_40Hz[NumTaps] = {
     0.0008397826459f, 0.0005757701583f, 0.0002562592272f, 3.523997657e-05f
 };
 
-void Filtering_Init(void)
-{
-  arm_fir_init_f32(&ADS1292, NumTaps, (float32_t *)BPF_5Hz_40Hz, firState2, blockSize);
-}
 
-
-void Filtering(float32_t * Input_data,float32_t * Output_data)
-{
-  arm_fir_init_f32(&ADS1292, NumTaps, (float32_t *)BPF_5Hz_40Hz, firState2, blockSize);
-  arm_fir_f32(&ADS1292, Input_data, Output_data, blockSize);
-}
