@@ -132,8 +132,8 @@ int main(void)
   x_queue_ecg_data = xQueueCreate(256, sizeof(uint32_t));//创建队列
 
 
-  // xTaskCreate(blood_task,"Blood Task",512,NULL,3,&Blood_TaskHandle);
-  // xTaskCreate(lmt70_task,"LMT70_Task",512,NULL,3,&LMT70_TaskHandle);
+   xTaskCreate(blood_task,"Blood Task",512,NULL,3,&Blood_TaskHandle);
+   xTaskCreate(lmt70_task,"LMT70_Task",512,NULL,3,&LMT70_TaskHandle);
   xTaskCreate(ads1292_task,"ADS1292 Task",1024,NULL,3,&ADS1292_TaskHandle);
   // xTaskCreate(filtering_task,"Filtering Task",512,NULL,3,&Filtering_TaskHandle);
 
