@@ -16,27 +16,20 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-#include "Wifi.h"
 #include "LMT70.h"
-#include "Voice_broadcast.h"
 #include "MAX30102.h"
 #include "blood.h"
 #include "FreeRTOS.h"
-#include "semphr.h"
 #include "arm_math.h"
 #include "ADS1292.h"
-#include "circular_buffer.h"
 #include "Filtering.h"
 #include "retarget.h"
-#include "queue.h"
-#include "Abnormal_filtering.h"
-
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#define MEDIAN_THRESHOLD 80000
+#define MEDIAN_THRESHOLD 60000
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -53,34 +46,14 @@
 
 /* USER CODE BEGIN PV */
 
-char answerString[128];
-uint8_t foundAnswer;
 
-
-SemaphoreHandle_t DR_Semaphore = NULL;//ADS1292的二值信号量，当ADS1292触发DR引脚的EXTI中断被释放
-CircularBuffer ECG_buffer;
-QueueHandle_t xQueueECGData;
-SemaphoreHandle_t wifiSemaphore;
-uint8_t wifiUserBuffer[1024] = "";
-
-extern u8 read_data[9];
-extern u8 read_Index;
-extern float32_t ECG_data_raw;         /*滤波前的ECG数据*/
-extern float32_t ECG_data_filtered;    /*滤波后的ECG数据*/
-int i = 0;
-
+SemaphoreHandle_t  dr_semaphore = NULL;//ADS1292的二值信号量，当ADS1292触发DR引脚的EXTI中断被释放
+QueueHandle_t      x_queue_ecg_data; //消息队列，用于处理ecg信号的采集和处理
 TaskHandle_t Main_TaskHandle;
 TaskHandle_t Blood_TaskHandle;
 TaskHandle_t LMT70_TaskHandle;
 TaskHandle_t ADS1292_TaskHandle;
 TaskHandle_t Filtering_TaskHandle;
-
-extern uint32_t blockSize;
-extern uint32_t numBlocks;
-extern float32_t firState2[Block_Size + NumTaps - 1];
-extern const float32_t BPF_5Hz_40Hz[NumTaps];
-
-extern arm_fir_instance_f32 ADS1292;
 
 /* USER CODE END PV */
 
@@ -89,13 +62,13 @@ void SystemClock_Config(void);
 void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
 
-void Main_Task(void *pvParameters);
-void Blood_Task(void *pvParameters);
-void LMT70_Task(void *pvParameters);
-void ADS1292_Task(void *pvParameters);
-void Filtering_Task(void *pvParameters);
+void main_task(void *pvParameters);
+void blood_task(void *pvParameters);
+void lmt70_task(void *pvParameters);
+void ads1292_task(void *pvParameters);
+void filtering_task(void *pvParameters);
 
-void bubbleSort(float32_t arr[], int n) {
+void bubble_sort(float32_t arr[], int n) {
   for (int i = 0; i < n - 1; i++) {
     for (int j = 0; j < n - 1 - i; j++) {
       if (arr[j] > arr[j + 1]) {
@@ -112,32 +85,7 @@ void bubbleSort(float32_t arr[], int n) {
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-body_condition_t body_Condition;
-
-//void Median_outlier_removal(Queue *queue,QueueDataType data,float Threshold)
-//{
-//  float s1 = 0;
-//  float s2 = 0;
-//  float temp_array[30] = {};
-//  if(!Queue_IsFull(queue))
-//  {
-//    Queue_Enqueue(queue,data);
-//  }
-//  else if(Queue_IsFull(queue))
-//  {
-//    temp_array = Queue_ToArray(queue, 30);
-//    calculateVariance();
-//    //加入点后计算方差
-//    //不超过阈值的逻辑
-//    //超过阈值的逻辑
-//
-//
-//  }
-//
-//}
-
-
-
+body_condition_t body_condition;
 /* USER CODE END 0 */
 
 /**
@@ -157,7 +105,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-//  Queue_Init(&q, 30);
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -179,17 +127,15 @@ int main(void)
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
   HAL_NVIC_DisableIRQ(EXTI9_5_IRQn);//首先应该先失能EXTI中断
-  arm_fir_init_f32(&ADS1292, NumTaps, (float32_t *)BPF_5Hz_40Hz, firState2, blockSize);
-  RetargetInit(&huart3);
-  DR_Semaphore = xSemaphoreCreateBinary();//创建二值信号量
-  initBuffer(&ECG_buffer);
-  xQueueECGData = xQueueCreate(256, sizeof(uint32_t));
+  RetargetInit(&huart3);//重定向串口
+  dr_semaphore = xSemaphoreCreateBinary();//创建二值信号量
+  x_queue_ecg_data = xQueueCreate(256, sizeof(uint32_t));//创建队列
 
 
-  // xTaskCreate(Blood_Task,"Blood Task",512,NULL,3,&Blood_TaskHandle);
-  // xTaskCreate(LMT70_Task,"LMT70_Task",512,NULL,3,&LMT70_TaskHandle);
-  xTaskCreate(ADS1292_Task,"ADS1292 Task",1024,NULL,3,&ADS1292_TaskHandle);
-  // xTaskCreate(Filtering_Task,"Filtering Task",512,NULL,3,&Filtering_TaskHandle);
+  // xTaskCreate(blood_task,"Blood Task",512,NULL,3,&Blood_TaskHandle);
+  // xTaskCreate(lmt70_task,"LMT70_Task",512,NULL,3,&LMT70_TaskHandle);
+  xTaskCreate(ads1292_task,"ADS1292 Task",1024,NULL,3,&ADS1292_TaskHandle);
+  // xTaskCreate(filtering_task,"Filtering Task",512,NULL,3,&Filtering_TaskHandle);
 
 
   /* USER CODE END 2 */
@@ -276,7 +222,7 @@ void SystemClock_Config(void)
 
 
 
-void Main_Task(void *pvParameters)
+void main_task(void *pvParameters)
 {
 
   for (;;) {
@@ -284,7 +230,7 @@ void Main_Task(void *pvParameters)
   }
 }
 
-void Blood_Task(void *pvParameters)
+void blood_task(void *pvParameters)
 {
   vTaskDelay(3000);
   Max30102_reset();     //重启max30102
@@ -292,40 +238,54 @@ void Blood_Task(void *pvParameters)
 
   for (;;)
   {
-      body_Condition.blood_ox = blood_Loop();
-    vTaskDelay(2500);
+      body_condition.blood_ox = blood_Loop();
+    vTaskDelay(100);
   }
 }
 
-void LMT70_Task(void *pvParameters)
+void lmt70_task(void *pvParameters)
 {
   osDelay(3000);
   lmt70_calibration();
   for (;;)
   {
-    body_Condition.body_temperature = lmt70_get_temperature();
-    vTaskDelay(100);
+    body_condition.body_temperature = lmt70_get_temperature();
+    vTaskDelay(50);
   }
 
 }
 
 
-void ADS1292_Task(void *pvParameters)
+void ads1292_task(void *pvParameters)
 {
-  if(ADS1292_PowerOnInit() == 1)
+  if(ADS1292_PowerOnInit() == 1)//初始化成功点亮LED
   {
     HAL_GPIO_TogglePin(LED_GREEN_GPIO_Port,LED_GREEN_Pin);
   }
-  char TEST_Buffer[128];
+
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);//使能EXTI中断
+  uint32_t blockSize = Block_Size;
+  uint32_t numBlocks = Samples_Number/Block_Size;
+  float32_t firState2[Block_Size + NumTaps - 1];
+
+  arm_fir_instance_f32 ADS1292;
+  extern const float32_t BPF_5Hz_40Hz[NumTaps];
   float32_t ecg_process_buffer[10];
   float32_t ecg_processed_buffer[10];
   uint8_t ecg_process_index = 0;
-  float32_t mid = 0;
-  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);//使能EXTI中断
+  float32_t mid;
+  arm_fir_init_f32(&ADS1292, NumTaps, (float32_t *)BPF_5Hz_40Hz, firState2, blockSize);//初始化滤波器
+  char TEST_Buffer[128];
+  uint8_t read_Index = 0;
+  uint8_t read_data[9];
+  uint32_t ch1_data;       //ADS1292通道1数据
+  uint32_t ch2_data;       //ADS1292通道2数据
+  float32_t ECG_data_raw;    // 滤波前
+  float32_t ECG_data_filtered;  // 滤波后
   for (;;) {
 
     // 等待二值信号量
-    if (xSemaphoreTake(DR_Semaphore, portMAX_DELAY) == pdTRUE)
+    if (xSemaphoreTake(dr_semaphore, portMAX_DELAY) == pdTRUE)
     {
       // 成功获取到信号量后，执行相应操作
       printf("Task1: Received the semaphore.\n");
@@ -338,9 +298,9 @@ void ADS1292_Task(void *pvParameters)
       ch2_data |= (uint32_t) read_data[6] << 16;
       ch2_data |= (uint32_t) read_data[7] << 8;
       ch2_data |= (uint32_t) read_data[8] << 0;
+      ECG_data_raw = (float32_t) (ch2_data ^ 0x800000); //赋值到缓冲区中
+      ecg_process_buffer[ecg_process_index] = ECG_data_raw;
 
-
-      ecg_process_buffer[ecg_process_index] = (float32_t) (ch2_data ^ 0x800000); //赋值到缓冲区中
       ecg_process_index++;
       if(ecg_process_index >= 9)
       {
@@ -351,7 +311,7 @@ void ADS1292_Task(void *pvParameters)
           ecg_processed_buffer[i] = ecg_process_buffer[i];//暂时用了一次
         }
         //对数组进行排序
-        bubbleSort(ecg_processed_buffer, 10);//冒泡排序最大的数字在末尾
+        bubble_sort(ecg_processed_buffer, 10);//冒泡排序最大的数字在末尾
         mid = (ecg_processed_buffer[4]+ecg_processed_buffer[5])/2; //计算中值
 
         for(int i=0;i<10;i++)//循环遍历数组中的元素，利用中值来舍弃异常点，
@@ -365,41 +325,64 @@ void ADS1292_Task(void *pvParameters)
         }
       }
       ECG_data_raw = ecg_processed_buffer[ecg_process_index];
-
       arm_fir_f32(&ADS1292, &ECG_data_raw, &ECG_data_filtered, blockSize);
-      sprintf(TEST_Buffer,"A=%d,B=%d,C=%d\r\n",(int)ECG_data_raw,(int)ECG_data_filtered,(int)(body_Condition.body_temperature*10));
+      sprintf(TEST_Buffer,"A=%d,B=%d,C=%d\r\n",(int)ECG_data_filtered,(int)(body_condition.blood_ox*10),(int)(body_condition.body_temperature*10));
       HAL_UART_Transmit(&huart1,(uint8_t*)TEST_Buffer,strlen(TEST_Buffer),1000);
 
-
-
-
-
-
-
-
-
-
-
-
-
-      // xQueueSend(xQueueECGData, &ECG_data_raw, portMAX_DELAY);//发送数据到消息队列中
+      // xQueueSend(x_queue_ecg_data, &ECG_data_raw, portMAX_DELAY);//发送数据到消息队列中
 
     }
   }
 
 }
 
-void Filtering_Task(void *pvParameters)
+void filtering_task(void *pvParameters)
 {
-  int ECG_value;
+  uint32_t blockSize = Block_Size;
+  uint32_t numBlocks = Samples_Number/Block_Size;
+  float32_t firState2[Block_Size + NumTaps - 1];
 
-  Filtering_Init();
+  arm_fir_instance_f32 ADS1292;
+  extern const float32_t BPF_5Hz_40Hz[NumTaps];
+  float32_t ECG_data_raw;    // 滤波前
+  float32_t ECG_data_filtered;  // 滤波后
+  float32_t ecg_process_buffer[10];
+  float32_t ecg_processed_buffer[10];
+  uint8_t ecg_process_index = 0;
+  float32_t mid;
+  arm_fir_init_f32(&ADS1292, NumTaps, (float32_t *)BPF_5Hz_40Hz, firState2, blockSize);//初始化滤波器
+  char TEST_Buffer[128];
   for(;;) {
-    if(xQueueReceive(xQueueECGData, &ECG_data_raw, portMAX_DELAY) == pdTRUE) {
+    if(xQueueReceive(x_queue_ecg_data, &ECG_data_raw, portMAX_DELAY) == pdTRUE) {
 
-      char TEST_Buffer[128];
+      ecg_process_buffer[ecg_process_index] = ECG_data_raw;
+
+      ecg_process_index++;
+      if(ecg_process_index >= 9)
+      {
+        ecg_process_index =0;//重新计数以便下次接收
+        //循环遍历赋值
+        for(int i=0;i<10;i++)
+        {
+          ecg_processed_buffer[i] = ecg_process_buffer[i];//暂时用了一次
+        }
+        //对数组进行排序
+        bubble_sort(ecg_processed_buffer, 10);//冒泡排序最大的数字在末尾
+        mid = (ecg_processed_buffer[4]+ecg_processed_buffer[5])/2; //计算中值
+
+        for(int i=0;i<10;i++)//循环遍历数组中的元素，利用中值来舍弃异常点，
+        {
+          //这里直接对原来的数组进行处理哦，因为要保证波形
+          if(fabs(ecg_process_buffer[i]-mid) > MEDIAN_THRESHOLD)
+          {
+            ecg_process_buffer[i] = mid;
+          }
+          ecg_processed_buffer[i] = ecg_process_buffer[i];
+        }
+      }
+      ECG_data_raw = ecg_processed_buffer[ecg_process_index];
       arm_fir_f32(&ADS1292, &ECG_data_raw, &ECG_data_filtered, blockSize);
-      sprintf(TEST_Buffer,"A=%d,B=%d,C=%d\r\n",(int)ECG_data_filtered,(int)(body_Condition.blood_ox*10),(int)(body_Condition.body_temperature*10));
+      sprintf(TEST_Buffer,"A=%d,B=%d,C=%d\r\n",(int)ECG_data_filtered,(int)(body_condition.blood_ox*10),(int)(body_condition.body_temperature*10));
       HAL_UART_Transmit(&huart1,(uint8_t*)TEST_Buffer,strlen(TEST_Buffer),1000);
 
     }
@@ -415,7 +398,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   {
 
     //释放信号量
-    xSemaphoreGiveFromISR(DR_Semaphore,pdFALSE);
+    xSemaphoreGiveFromISR(dr_semaphore, pdFALSE);
   }
 
 
